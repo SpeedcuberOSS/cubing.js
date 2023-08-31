@@ -3,6 +3,12 @@ import { KPattern, type KPuzzle } from "../../../../cubing/kpuzzle";
 import { puzzles, type PuzzleLoader } from "../../../../cubing/puzzles";
 import { TwistyAnimatedSVG } from "../../../../cubing/twisty/views/2D/TwistyAnimatedSVG";
 import { defToString, patternToString } from "../3x3x3-formats/convert";
+import {
+  solveTwsearchServer,
+  type TwsearchServerClientOptions,
+} from "../twsearch/twsearch-server";
+import type { SolveTwsearchOptions } from "../../../../cubing/search/outside";
+import { experimentalSolveTwsearch } from "../../../../cubing/search";
 
 interface PieceFacelets {
   [orientation: number]: Facelet;
@@ -38,6 +44,7 @@ class App {
   patternElem: HTMLTextAreaElement = document.querySelector(
     "#display-pattern-text",
   )!;
+  goTwsearch = document.querySelector("#go-twsearch") as HTMLButtonElement
 
   constructor() {
     const puzzleSelect = document.querySelector(
@@ -101,10 +108,49 @@ class App {
         `${kpuzzle.definition.name}.scramble.json`,
       );
     });
+    this.goTwsearch.addEventListener("click", async () => {
+      const puzzle = await this.puzzle;
+      const { kpuzzle, pattern } = puzzle;
+      const result = await twsearch(kpuzzle, pattern, 0);
+      console.log(result);
+    });
   }
 
   async displayPatternText() {
-    this.patternElem.value = patternToString((await this.puzzle).pattern);
+    const pattern = (await this.puzzle).pattern;
+    this.patternElem.value = patternToString(pattern);
+    console.log(pattern)
+    console.log(this.patternElem.value)
+  }
+}
+
+const getMoveSubset = () => ['B', '2B', 'Bw', 'D', '2D', 'Dw', 'E', 'F', '2F', 'Fw', 'L', '2L', 'Lw', 'M', 'R', '2R', 'Rw', 'S', 'U', '2U', 'Uw'];
+const twsearch = async (kpuzzle: KPuzzle, kpattern: KPattern, minDepth: number) => {
+  console.log("Searching...");
+  try {
+    const options: TwsearchServerClientOptions = {
+      searchArgs: {
+        minDepth: minDepth,
+        moveSubset: getMoveSubset(),
+      },
+    };
+    const localServerRequested = false; // (document.querySelector("#use-server") as HTMLInputElement).checked
+    if (localServerRequested) {
+      console.log((
+        await solveTwsearchServer(kpuzzle, kpattern, options)
+      ).toString());
+    } else {
+      const twsearchOptions: SolveTwsearchOptions = {
+        moveSubset: options.searchArgs?.moveSubset,
+        minDepth: options.searchArgs?.minDepth,
+      };
+      console.log((
+        await experimentalSolveTwsearch(kpuzzle, kpattern, twsearchOptions)
+      ).toString());
+    }
+  } catch (e) {
+    console.log(e);
+    throw e;
   }
 }
 
